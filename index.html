@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bolão da Copa do Mundo 2026</title>
+    <meta name="description" content="Faça seus palpites para a Copa do Mundo de 2026, dispute com amigos e exporte seus resultados para CSV!">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header Principal -->
+        <header class="app-header">
+            <div class="brand">
+                <span class="brand-logo" id="app-logo">🏆</span>
+                <div class="brand-text">
+                    <h1>Bolão da Copa 2026</h1>
+                    <p>Acompanhe, dê seus palpites e dispute a liderança!</p>
+                </div>
+            </div>
+            
+            <!-- Widget de Controle do Usuário -->
+            <div class="user-widget" id="user-profile-widget">
+                <div class="user-selector-wrapper">
+                    <label for="user-select">Palpitador</label>
+                    <select id="user-select" class="user-select">
+                        <!-- Carregado via JS -->
+                    </select>
+                </div>
+                <div class="user-actions">
+                    <button class="btn btn-secondary" id="btn-add-user" title="Adicionar Novo Usuário">
+                        ➕ Novo
+                    </button>
+                </div>
+                <div class="user-score-badge">
+                    <span class="user-score-label">Pontuação</span>
+                    <span class="user-score-value" id="current-user-score">0 pts</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Indicador de Status da Conexão/Storage -->
+        <div class="alert-info" id="connection-status-container">
+            <span class="alert-info-icon" id="connection-status-icon">🟡</span>
+            <div class="alert-info-text">
+                <h4 id="connection-status-text">Detectando modo de operação...</h4>
+                <p>O sistema suporta persistência local em arquivo CSV ou no armazenamento do navegador.</p>
+            </div>
+        </div>
+
+        <!-- Abas de Navegação -->
+        <nav class="tabs-nav" aria-label="Navegação do site">
+            <button class="tab-btn active" data-tab="jogos" id="tab-btn-jogos">
+                ⚽ Jogos e Palpites
+            </button>
+            <button class="tab-btn" data-tab="ranking" id="tab-btn-ranking">
+                📊 Classificação
+            </button>
+            <button class="tab-btn" data-tab="admin" id="tab-btn-admin">
+                ⚙️ Painel Admin
+            </button>
+        </nav>
+
+        <!-- Conteúdo das Abas -->
+        <main>
+            <!-- Aba de Jogos -->
+            <section class="tab-content active" id="jogos-tab" aria-labelledby="tab-btn-jogos">
+                <div class="section-header">
+                    <h2>Jogos da Copa do Mundo</h2>
+                    <span style="font-size: 0.85rem; color: var(--text-secondary);">
+                        Faça seu palpite para o usuário ativo: <strong id="current-username-display" style="color:var(--primary-gold)">Visitante</strong>
+                    </span>
+                </div>
+                
+                <!-- Barra de Navegação por Fases -->
+                <div class="phase-nav-container">
+                    <nav class="phase-nav" aria-label="Fases do torneio">
+                        <button class="phase-btn active" data-phase="grupos" id="phase-btn-grupos">Fase de Grupos</button>
+                        <button class="phase-btn" data-phase="32" id="phase-btn-32">Fase de 32</button>
+                        <button class="phase-btn" data-phase="oitavas" id="phase-btn-oitavas">Oitavas</button>
+                        <button class="phase-btn" data-phase="quartas" id="phase-btn-quartas">Quartas</button>
+                        <button class="phase-btn" data-phase="semi" id="phase-btn-semi">Semifinal</button>
+                        <button class="phase-btn" data-phase="finais" id="phase-btn-finais">Final / 3º Lugar</button>
+                    </nav>
+                </div>
+
+                <div class="matches-grid" id="matches-grid">
+                    <!-- Preenchido dinamicamente via JS -->
+                </div>
+            </section>
+
+            <!-- Aba do Ranking -->
+            <section class="tab-content" id="ranking-tab" aria-labelledby="tab-btn-ranking">
+                <div class="section-header">
+                    <h2>Classificação Geral</h2>
+                </div>
+                <div class="ranking-card">
+                    <div class="ranking-table-wrapper">
+                        <table class="ranking-table" id="ranking-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Posição</th>
+                                    <th scope="col">Usuário</th>
+                                    <th scope="col">Participação</th>
+                                    <th scope="col">Placares Exatos</th>
+                                    <th scope="col">Total Pontos</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ranking-tbody">
+                                <!-- Preenchido dinamicamente via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Aba Administrativa -->
+            <section class="tab-content" id="admin-tab" aria-labelledby="tab-btn-admin">
+                <div class="section-header">
+                    <h2>Painel de Controle e CSV</h2>
+                </div>
+                
+                <div class="settings-grid">
+                    <!-- Lançamento de placares reais -->
+                    <div class="admin-card">
+                        <h3>Lançar Resultados Reais (Administração)</h3>
+                        <p style="font-size:0.8rem; color: var(--text-secondary); margin-bottom:15px;">
+                            Insira os resultados reais das partidas para calcular os pontos de todos os usuários do bolão.
+                        </p>
+                        <div class="admin-matches-list" id="admin-matches-list">
+                            <!-- Carregado via JS -->
+                        </div>
+                    </div>
+
+                    <!-- Gerenciamento de CSV e Dados -->
+                    <div>
+                        <div class="admin-card">
+                            <h3>Base de Dados (CSV)</h3>
+                            <p style="font-size:0.8rem; color: var(--text-secondary); margin-bottom:10px;">
+                                Exportar ou importar palpites cadastrados.
+                            </p>
+                            
+                            <!-- Botão de Download -->
+                            <div class="db-actions">
+                                <button class="btn btn-primary" id="btn-export-csv" style="width: 100%; justify-content: center;">
+                                    📥 Exportar para CSV
+                                </button>
+                            </div>
+                            
+                            <!-- Área de Upload/Drag-drop -->
+                            <div class="dropzone" id="csv-dropzone">
+                                <span class="dropzone-icon">📤</span>
+                                <div class="dropzone-text">
+                                    <h4>Importar CSV</h4>
+                                    <p>Clique ou arraste o arquivo predictions.csv aqui</p>
+                                </div>
+                                <input type="file" id="csv-file-input" accept=".csv" style="display: none;">
+                            </div>
+                        </div>
+
+                        <!-- Card de Regras e Estrutura CSV -->
+                        <div class="admin-card" style="margin-top: 20px;">
+                            <h3>Regras de Pontuação</h3>
+                            <ul style="font-size:0.8rem; color: var(--text-secondary); padding-left:15px; margin: 10px 0; display:flex; flex-direction:column; gap:5px;">
+                                <li>🎯 <strong>25 Pontos:</strong> Acerto exato do placar (Ex: Palpite 2-1, Real 2-1).</li>
+                                <li>⚽ <strong>15 Pontos:</strong> Acerto do vencedor + saldo de gols (Ex: Palpite 2-1, Real 3-2; ou Empate: Palpite 1-1, Real 2-2).</li>
+                                <li>🏅 <strong>10 Pontos:</strong> Acerto apenas do vencedor (Ex: Palpite 2-0, Real 1-0).</li>
+                                <li>❌ <strong>0 Pontos:</strong> Erro total do resultado.</li>
+                            </ul>
+                            
+                            <h3 style="margin-top: 15px;">Estrutura do CSV (`predictions.csv`)</h3>
+                            <code style="display:block; background:rgba(0,0,0,0.3); padding:8px; border-radius:4px; font-size:0.75rem; word-break:break-all; color:var(--primary-gold); margin-top:5px;">
+                                username,match_id,score_a,score_b,points_earned,updated_at
+                            </code>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal para adicionar usuário -->
+    <div class="modal-overlay" id="add-user-modal">
+        <div class="modal-card">
+            <h3 class="modal-title">Novo Palpitador</h3>
+            <div class="form-group">
+                <label for="new-username">Nome de Usuário / Apelido</label>
+                <input type="text" id="new-username" class="form-input" placeholder="Ex: Galvão Bueno" maxlength="20">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="btn-modal-cancel">Cancelar</button>
+                <button class="btn btn-success" id="btn-modal-save">Adicionar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contêiner de Notificações Toast -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
