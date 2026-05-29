@@ -52,27 +52,33 @@ git push origin main
 4. **Selecione este repositório**
 
 5. **Vercel detectará automaticamente:**
-   - Build command: `npm install` (node_modules)
-   - Output directory: root (diretório raiz)
-   - Environment: Node.js
+   - Framework: Node.js
+   - Build command: `npm install`
+   - Serverless functions: `api/index.js`
 
 6. **Clique em "Deploy"**
 
 Após alguns minutos, sua aplicação estará disponível em um URL público da Vercel!
 
+**Nota:** Se encontrar erros de CSS ou JS após primeiro deploy, consulte [VERCEL_FIX.md](VERCEL_FIX.md) para resolução.
+
 ## 🗂️ Estrutura de Arquivos
 
 ```
 antigravity/
-├── server.js              # Servidor Node.js (equivalente ao server.ps1)
+├── api/
+│   └── index.js           # Serverless function (Vercel)
+├── server.js              # Servidor Node.js local (npm start)
 ├── server.ps1             # Servidor PowerShell (Windows)
 ├── index.html             # Interface principal
 ├── app.js                 # Lógica do cliente
 ├── style.css              # Estilos
 ├── package.json           # Dependências Node.js
-├── vercel.json            # Configuração Vercel
+├── vercel.json            # Configuração Vercel (serverless)
 ├── matches.csv            # Base de dados de partidas
 ├── predictions.csv        # Base de dados de palpites
+├── README.md              # Este arquivo
+├── VERCEL_FIX.md          # Guia de correção Vercel
 └── arquivos/              # Dados auxiliares (times, grupos, etc.)
 ```
 
