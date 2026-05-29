@@ -3,7 +3,7 @@
 // Estado Global da Aplicação
 let state = {
     isOnline: false,
-    currentUser: 'Neymar',
+    currentUser: 'Fernando',
     users: ['Fernando'],
     matches: [],
     predictions: [],

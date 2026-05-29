@@ -105,12 +105,19 @@ module.exports = (req, res) => {
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
   res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
 
+  // Helper para responder JSON
+  const sendJson = (statusCode, data) => {
+    res.status(statusCode);
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify(data));
+  };
+
   if (req.method === 'OPTIONS') {
     res.status(200).end();
     return;
   }
 
-  // Parse body manualmente (sem express)
+  // Parse body manualmente
   let body = '';
   req.on('data', chunk => {
     body += chunk.toString();
@@ -119,36 +126,44 @@ module.exports = (req, res) => {
   req.on('end', () => {
     try {
       if (body) {
-        req.body = JSON.parse(body);
+        try {
+          req.body = JSON.parse(body);
+        } catch {
+          req.body = {};
+        }
       } else {
         req.body = {};
       }
 
-      // Rotas
-      if (req.url === '/api/matches' && req.method === 'GET') {
+      // NOTA: req.url NÃO inclui /api/ porque Vercel já roteia /api/* para este handler
+      // Portanto, /api/matches chega aqui como /matches
+      const url = req.url.split('?')[0]; // Remove query strings
+
+      // Rotas da API
+      if (url === '/matches' && req.method === 'GET') {
         const matches = readCsv(CSV_PATHS.matches);
-        res.status(200).json(matches);
+        sendJson(200, matches);
       }
-      else if (req.url === '/api/predictions' && req.method === 'GET') {
+      else if (url === '/predictions' && req.method === 'GET') {
         const predictions = readCsv(CSV_PATHS.predictions);
-        res.status(200).json(predictions);
+        sendJson(200, predictions);
       }
-      else if (req.url === '/api/predictions' && req.method === 'POST') {
+      else if (url === '/predictions' && req.method === 'POST') {
         const { username, match_id, score_a, score_b } = req.body;
 
         if (!username || !match_id) {
-          return res.status(400).json({ error: 'Dados insuficientes' });
+          return sendJson(400, { error: 'Dados insuficientes' });
         }
 
         const matches = readCsv(CSV_PATHS.matches);
         const match = matches.find(m => m.id === String(match_id));
 
         if (!match) {
-          return res.status(404).json({ error: 'Partida não encontrada' });
+          return sendJson(404, { error: 'Partida não encontrada' });
         }
 
         if (match.status === 'finished') {
-          return res.status(400).json({ error: 'Não é possível alterar palpites para jogos finalizados' });
+          return sendJson(400, { error: 'Não é possível alterar palpites para jogos finalizados' });
         }
 
         let predictions = readCsv(CSV_PATHS.predictions);
@@ -183,23 +198,23 @@ module.exports = (req, res) => {
         }
 
         if (writeCsv(CSV_PATHS.predictions, predictions)) {
-          res.status(200).json({ success: true });
+          sendJson(200, { success: true });
         } else {
-          res.status(500).json({ error: 'Erro ao salvar' });
+          sendJson(500, { error: 'Erro ao salvar' });
         }
       }
-      else if (req.url === '/api/matches/score' && req.method === 'POST') {
+      else if (url === '/matches/score' && req.method === 'POST') {
         const { match_id, score_a, score_b, status } = req.body;
 
         if (!match_id || score_a === undefined || score_b === undefined) {
-          return res.status(400).json({ error: 'Dados inválidos' });
+          return sendJson(400, { error: 'Dados inválidos' });
         }
 
         let matches = readCsv(CSV_PATHS.matches);
         const matchIndex = matches.findIndex(m => m.id === String(match_id));
 
         if (matchIndex === -1) {
-          return res.status(404).json({ error: 'Partida não encontrada' });
+          return sendJson(404, { error: 'Partida não encontrada' });
         }
 
         matches[matchIndex] = {
@@ -210,7 +225,7 @@ module.exports = (req, res) => {
         };
 
         if (!writeCsv(CSV_PATHS.matches, matches)) {
-          return res.status(500).json({ error: 'Erro ao atualizar partida' });
+          return sendJson(500, { error: 'Erro ao atualizar partida' });
         }
 
         let predictions = readCsv(CSV_PATHS.predictions);
@@ -232,17 +247,17 @@ module.exports = (req, res) => {
         });
 
         if (!writeCsv(CSV_PATHS.predictions, predictions)) {
-          return res.status(500).json({ error: 'Erro ao atualizar palpites' });
+          return sendJson(500, { error: 'Erro ao atualizar palpites' });
         }
 
-        res.status(200).json({ success: true });
+        sendJson(200, { success: true });
       }
       else {
-        res.status(404).json({ error: 'Rota não encontrada' });
+        sendJson(404, { error: 'Rota não encontrada' });
       }
     } catch (err) {
       console.error('Erro:', err);
-      res.status(500).json({ error: 'Erro interno do servidor' });
+      sendJson(500, { error: 'Erro interno do servidor' });
     }
   });
 };
