@@ -1,34 +1,26 @@
 /**
- * api/index.js - Serverless Function para Bolão da Copa do Mundo 2026
- * Executada na Vercel (sem listen, apenas handlers de requisição)
+ * api/index.js - Serverless Handler para Vercel
+ * Executa toda a lógica do servidor como uma serverless function
  */
 
-const express = require('express');
-const cors = require('cors');
-const bodyParser = require('body-parser');
 const fs = require('fs');
 const path = require('path');
 const parse = require('csv-parse/sync');
 const stringify = require('csv-stringify/sync');
 
-const app = express();
-
-// Middlewares
-app.use(cors());
-app.use(bodyParser.json());
-
-// Caminhos dos arquivos CSV (relativos à raiz do projeto)
+// Caminhos dos arquivos CSV (para Vercel, relativo à raiz do projeto)
 const CSV_PATHS = {
   matches: path.join(process.cwd(), 'matches.csv'),
   predictions: path.join(process.cwd(), 'predictions.csv')
 };
 
 /**
- * Função para ler CSV e retornar como array de objetos
+ * Função para ler CSV
  */
 function readCsv(filePath) {
   try {
     if (!fs.existsSync(filePath)) {
+      console.warn(`Arquivo não encontrado: ${filePath}`);
       return [];
     }
     const fileContent = fs.readFileSync(filePath, 'utf-8');
@@ -56,7 +48,6 @@ function writeCsv(filePath, data) {
       fs.writeFileSync(filePath, '', 'utf-8');
       return true;
     }
-    
     const columns = Object.keys(data[0]);
     const output = stringify.stringify(data, { header: true, columns });
     fs.writeFileSync(filePath, output, 'utf-8');
@@ -68,7 +59,7 @@ function writeCsv(filePath, data) {
 }
 
 /**
- * Calcula pontos de um palpite baseado no placar real
+ * Calcula pontos do palpite
  */
 function calculatePredictionPoints(predScoreA, predScoreB, realScoreA, realScoreB) {
   if (predScoreA === undefined || predScoreA === null || predScoreA === '' ||
@@ -87,7 +78,6 @@ function calculatePredictionPoints(predScoreA, predScoreB, realScoreA, realScore
     return 0;
   }
 
-  // 1. Acerto exato: 25 pontos
   if (pA === rA && pB === rB) {
     return 25;
   }
@@ -97,12 +87,8 @@ function calculatePredictionPoints(predScoreA, predScoreB, realScoreA, realScore
   const correctWinner = (pDiff > 0 && rDiff > 0) || (pDiff < 0 && rDiff < 0) || (pDiff === 0 && rDiff === 0);
 
   if (correctWinner) {
-    if (pDiff === 0) {
-      return 15;
-    }
-    if (pDiff === rDiff) {
-      return 15;
-    }
+    if (pDiff === 0) return 15;
+    if (pDiff === rDiff) return 15;
     return 10;
   }
 
@@ -110,152 +96,154 @@ function calculatePredictionPoints(predScoreA, predScoreB, realScoreA, realScore
 }
 
 /**
- * GET /api/matches
+ * Vercel Serverless Handler
  */
-app.get('/matches', (req, res) => {
-  try {
-    const matches = readCsv(CSV_PATHS.matches);
-    res.json(matches);
-  } catch (err) {
-    console.error('Erro ao buscar partidas:', err);
-    res.status(500).json({ error: 'Erro ao buscar partidas' });
+module.exports = (req, res) => {
+  // CORS headers
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
+
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
   }
-});
 
-/**
- * GET /api/predictions
- */
-app.get('/predictions', (req, res) => {
-  try {
-    const predictions = readCsv(CSV_PATHS.predictions);
-    res.json(predictions);
-  } catch (err) {
-    console.error('Erro ao buscar palpites:', err);
-    res.status(500).json({ error: 'Erro ao buscar palpites' });
-  }
-});
+  // Parse body manualmente (sem express)
+  let body = '';
+  req.on('data', chunk => {
+    body += chunk.toString();
+  });
 
-/**
- * POST /api/predictions
- */
-app.post('/predictions', (req, res) => {
-  try {
-    const { username, match_id, score_a, score_b } = req.body;
-
-    if (!username || !match_id) {
-      return res.status(400).json({ error: 'Dados insuficientes (username, match_id necessários)' });
-    }
-
-    const matches = readCsv(CSV_PATHS.matches);
-    const match = matches.find(m => m.id === String(match_id));
-
-    if (!match) {
-      return res.status(404).json({ error: 'Partida não encontrada' });
-    }
-
-    if (match.status === 'finished') {
-      return res.status(400).json({ error: 'Não é possível enviar ou alterar palpites para jogos finalizados.' });
-    }
-
-    let predictions = readCsv(CSV_PATHS.predictions);
-    let points = 0;
-
-    if (match.status === 'finished' && match.score_a !== '' && match.score_b !== '') {
-      points = calculatePredictionPoints(score_a, score_b, match.score_a, match.score_b);
-    }
-
-    const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
-    const existingIndex = predictions.findIndex(p => p.username === username && p.match_id === String(match_id));
-
-    if (existingIndex !== -1) {
-      predictions[existingIndex] = {
-        ...predictions[existingIndex],
-        username,
-        match_id: String(match_id),
-        score_a: String(score_a),
-        score_b: String(score_b),
-        points_earned: String(points),
-        updated_at: now
-      };
-    } else {
-      predictions.push({
-        username,
-        match_id: String(match_id),
-        score_a: String(score_a),
-        score_b: String(score_b),
-        points_earned: String(points),
-        updated_at: now
-      });
-    }
-
-    if (writeCsv(CSV_PATHS.predictions, predictions)) {
-      res.json({ success: true });
-    } else {
-      res.status(500).json({ error: 'Erro ao salvar palpite' });
-    }
-  } catch (err) {
-    console.error('Erro ao processar palpite:', err);
-    res.status(500).json({ error: 'Erro interno do servidor' });
-  }
-});
-
-/**
- * POST /api/matches/score
- */
-app.post('/matches/score', (req, res) => {
-  try {
-    const { match_id, score_a, score_b, status } = req.body;
-
-    if (!match_id || score_a === undefined || score_b === undefined) {
-      return res.status(400).json({ error: 'Dados inválidos (match_id, score_a, score_b necessários)' });
-    }
-
-    let matches = readCsv(CSV_PATHS.matches);
-    const matchIndex = matches.findIndex(m => m.id === String(match_id));
-
-    if (matchIndex === -1) {
-      return res.status(404).json({ error: 'Partida não encontrada' });
-    }
-
-    matches[matchIndex] = {
-      ...matches[matchIndex],
-      score_a: String(score_a),
-      score_b: String(score_b),
-      status: status || matches[matchIndex].status
-    };
-
-    if (!writeCsv(CSV_PATHS.matches, matches)) {
-      return res.status(500).json({ error: 'Erro ao atualizar partida' });
-    }
-
-    let predictions = readCsv(CSV_PATHS.predictions);
-    const targetMatch = matches[matchIndex];
-
-    predictions = predictions.map(pred => {
-      if (pred.match_id === String(match_id)) {
-        let points = 0;
-        if (targetMatch.status === 'finished' && targetMatch.score_a !== '' && targetMatch.score_b !== '') {
-          points = calculatePredictionPoints(pred.score_a, pred.score_b, targetMatch.score_a, targetMatch.score_b);
-        }
-        return {
-          ...pred,
-          points_earned: String(points),
-          updated_at: new Date().toISOString().replace('T', ' ').substring(0, 19)
-        };
+  req.on('end', () => {
+    try {
+      if (body) {
+        req.body = JSON.parse(body);
+      } else {
+        req.body = {};
       }
-      return pred;
-    });
 
-    if (!writeCsv(CSV_PATHS.predictions, predictions)) {
-      return res.status(500).json({ error: 'Erro ao atualizar palpites' });
+      // Rotas
+      if (req.url === '/api/matches' && req.method === 'GET') {
+        const matches = readCsv(CSV_PATHS.matches);
+        res.status(200).json(matches);
+      }
+      else if (req.url === '/api/predictions' && req.method === 'GET') {
+        const predictions = readCsv(CSV_PATHS.predictions);
+        res.status(200).json(predictions);
+      }
+      else if (req.url === '/api/predictions' && req.method === 'POST') {
+        const { username, match_id, score_a, score_b } = req.body;
+
+        if (!username || !match_id) {
+          return res.status(400).json({ error: 'Dados insuficientes' });
+        }
+
+        const matches = readCsv(CSV_PATHS.matches);
+        const match = matches.find(m => m.id === String(match_id));
+
+        if (!match) {
+          return res.status(404).json({ error: 'Partida não encontrada' });
+        }
+
+        if (match.status === 'finished') {
+          return res.status(400).json({ error: 'Não é possível alterar palpites para jogos finalizados' });
+        }
+
+        let predictions = readCsv(CSV_PATHS.predictions);
+        let points = 0;
+
+        if (match.status === 'finished' && match.score_a !== '' && match.score_b !== '') {
+          points = calculatePredictionPoints(score_a, score_b, match.score_a, match.score_b);
+        }
+
+        const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
+        const existingIndex = predictions.findIndex(p => p.username === username && p.match_id === String(match_id));
+
+        if (existingIndex !== -1) {
+          predictions[existingIndex] = {
+            ...predictions[existingIndex],
+            username,
+            match_id: String(match_id),
+            score_a: String(score_a),
+            score_b: String(score_b),
+            points_earned: String(points),
+            updated_at: now
+          };
+        } else {
+          predictions.push({
+            username,
+            match_id: String(match_id),
+            score_a: String(score_a),
+            score_b: String(score_b),
+            points_earned: String(points),
+            updated_at: now
+          });
+        }
+
+        if (writeCsv(CSV_PATHS.predictions, predictions)) {
+          res.status(200).json({ success: true });
+        } else {
+          res.status(500).json({ error: 'Erro ao salvar' });
+        }
+      }
+      else if (req.url === '/api/matches/score' && req.method === 'POST') {
+        const { match_id, score_a, score_b, status } = req.body;
+
+        if (!match_id || score_a === undefined || score_b === undefined) {
+          return res.status(400).json({ error: 'Dados inválidos' });
+        }
+
+        let matches = readCsv(CSV_PATHS.matches);
+        const matchIndex = matches.findIndex(m => m.id === String(match_id));
+
+        if (matchIndex === -1) {
+          return res.status(404).json({ error: 'Partida não encontrada' });
+        }
+
+        matches[matchIndex] = {
+          ...matches[matchIndex],
+          score_a: String(score_a),
+          score_b: String(score_b),
+          status: status || matches[matchIndex].status
+        };
+
+        if (!writeCsv(CSV_PATHS.matches, matches)) {
+          return res.status(500).json({ error: 'Erro ao atualizar partida' });
+        }
+
+        let predictions = readCsv(CSV_PATHS.predictions);
+        const targetMatch = matches[matchIndex];
+
+        predictions = predictions.map(pred => {
+          if (pred.match_id === String(match_id)) {
+            let points = 0;
+            if (targetMatch.status === 'finished' && targetMatch.score_a !== '' && targetMatch.score_b !== '') {
+              points = calculatePredictionPoints(pred.score_a, pred.score_b, targetMatch.score_a, targetMatch.score_b);
+            }
+            return {
+              ...pred,
+              points_earned: String(points),
+              updated_at: new Date().toISOString().replace('T', ' ').substring(0, 19)
+            };
+          }
+          return pred;
+        });
+
+        if (!writeCsv(CSV_PATHS.predictions, predictions)) {
+          return res.status(500).json({ error: 'Erro ao atualizar palpites' });
+        }
+
+        res.status(200).json({ success: true });
+      }
+      else {
+        res.status(404).json({ error: 'Rota não encontrada' });
+      }
+    } catch (err) {
+      console.error('Erro:', err);
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
+  });
+};
 
-    res.json({ success: true });
-  } catch (err) {
-    console.error('Erro ao atualizar placar:', err);
-    res.status(500).json({ error: 'Erro interno do servidor' });
-  }
-});
-
-// Exporta app para Vercel
-module.exports = app;
