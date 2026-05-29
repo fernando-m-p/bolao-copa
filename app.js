@@ -4,7 +4,7 @@
 let state = {
     isOnline: false,
     currentUser: 'Neymar',
-    users: ['Neymar', 'Messi', 'Cristiano'],
+    users: ['Fernando'],
     matches: [],
     predictions: [],
     currentTab: 'jogos', // 'jogos' | 'ranking' | 'admin'
@@ -534,6 +534,156 @@ function renderLeaderboard() {
     });
 }
 
+function parseScoreValue(value) {
+    if (value === undefined || value === null || value === '') return null;
+    const parsed = parseInt(value, 10);
+    return Number.isNaN(parsed) ? null : parsed;
+}
+
+function getGroupName(stage) {
+    if (!stage) return 'Grupo Desconhecido';
+    const normalized = String(stage).trim();
+    const match = normalized.match(/Grupo\s*[A-Z0-9]+/i) || normalized.match(/Group\s*[A-Z0-9]+/i);
+    return match ? match[0] : normalized;
+}
+
+function computeGroupStandings() {
+    const activeStatuses = new Set(['finished', 'active']);
+    const groupData = {};
+
+    // Inicializa todos os times de cada grupo com estatísticas zeradas
+    state.matches.forEach(match => {
+        if (!match.stage) return;
+        const lowerStage = String(match.stage).toLowerCase();
+        if (!lowerStage.includes('grupo') && !lowerStage.includes('group')) return;
+
+        const groupName = getGroupName(match.stage);
+        if (!groupData[groupName]) {
+            groupData[groupName] = {};
+        }
+
+        const teamA = match.team_a || 'Time A';
+        const teamB = match.team_b || 'Time B';
+        if (!groupData[groupName][teamA]) {
+            groupData[groupName][teamA] = { team: teamA, played: 0, wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0, goalDifference: 0, points: 0 };
+        }
+        if (!groupData[groupName][teamB]) {
+            groupData[groupName][teamB] = { team: teamB, played: 0, wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0, goalDifference: 0, points: 0 };
+        }
+    });
+
+    // Atualiza os resultados apenas para jogos em andamento ou encerrados com placar disponível
+    state.matches.forEach(match => {
+        if (!match.stage || !activeStatuses.has(match.status)) return;
+        const lowerStage = String(match.stage).toLowerCase();
+        if (!lowerStage.includes('grupo') && !lowerStage.includes('group')) return;
+
+        const scoreA = parseScoreValue(match.score_a);
+        const scoreB = parseScoreValue(match.score_b);
+        if (scoreA === null || scoreB === null) return;
+
+        const groupName = getGroupName(match.stage);
+        const teamA = match.team_a || 'Time A';
+        const teamB = match.team_b || 'Time B';
+        const home = groupData[groupName][teamA];
+        const away = groupData[groupName][teamB];
+
+        home.played += 1;
+        away.played += 1;
+        home.goalsFor += scoreA;
+        home.goalsAgainst += scoreB;
+        away.goalsFor += scoreB;
+        away.goalsAgainst += scoreA;
+
+        if (scoreA > scoreB) {
+            home.wins += 1;
+            home.points += 3;
+            away.losses += 1;
+        } else if (scoreA < scoreB) {
+            away.wins += 1;
+            away.points += 3;
+            home.losses += 1;
+        } else {
+            home.draws += 1;
+            away.draws += 1;
+            home.points += 1;
+            away.points += 1;
+        }
+
+        home.goalDifference = home.goalsFor - home.goalsAgainst;
+        away.goalDifference = away.goalsFor - away.goalsAgainst;
+    });
+
+    return Object.keys(groupData).sort().map(groupName => {
+        const teams = Object.values(groupData[groupName]);
+        teams.sort((a, b) => {
+            if (b.points !== a.points) return b.points - a.points;
+            if (b.goalDifference !== a.goalDifference) return b.goalDifference - a.goalDifference;
+            if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
+            if (b.wins !== a.wins) return b.wins - a.wins;
+            return a.team.localeCompare(b.team, 'pt-BR', { sensitivity: 'base' });
+        });
+        return { group: groupName, teams };
+    });
+}
+
+function renderStandings() {
+    const wrapper = document.getElementById('standings-table-wrapper');
+    if (!wrapper) return;
+    wrapper.innerHTML = '';
+
+    const standings = computeGroupStandings();
+    if (standings.length === 0) {
+        wrapper.innerHTML = '<div class="alert-info"><div class="alert-info-text">Nenhuma classificação de grupo disponível. Atualize resultados de partidas encerradas ou em andamento com placares válidos.</div></div>';
+        return;
+    }
+
+    standings.forEach(group => {
+        const groupSection = document.createElement('div');
+        groupSection.className = 'standings-group-section';
+        groupSection.innerHTML = `
+            <div class="standings-group-header">
+                <h3>${group.group}</h3>
+            </div>
+            <div class="standings-table-container">
+                <table class="standings-table">
+                    <thead>
+                        <tr>
+                            <th>Pos</th>
+                            <th>Time</th>
+                            <th>P</th>
+                            <th>V</th>
+                            <th>E</th>
+                            <th>D</th>
+                            <th>GP</th>
+                            <th>GC</th>
+                            <th>SG</th>
+                            <th>Pts</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${group.teams.map((team, idx) => `
+                            <tr class="standings-row ${idx === 0 ? 'standings-first' : idx === 1 ? 'standings-second' : ''}">
+                                <td>${idx + 1}</td>
+                                <td>${team.team}</td>
+                                <td>${team.played}</td>
+                                <td>${team.wins}</td>
+                                <td>${team.draws}</td>
+                                <td>${team.losses}</td>
+                                <td>${team.goalsFor}</td>
+                                <td>${team.goalsAgainst}</td>
+                                <td>${team.goalDifference}</td>
+                                <td>${team.points}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+        wrapper.appendChild(groupSection);
+    });
+}
+
 // Renderiza a lista de partidas no Painel de Admin para lançar placares reais
 function renderAdminPanel() {
     const list = document.getElementById('admin-matches-list');
@@ -739,6 +889,8 @@ function setupEventListeners() {
             // Recarrega informações específicas
             if (target === 'ranking') {
                 renderLeaderboard();
+            } else if (target === 'standings') {
+                renderStandings();
             } else if (target === 'admin') {
                 renderAdminPanel();
             }

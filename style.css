@@ -618,14 +618,85 @@ body {
     transition: var(--transition-smooth);
 }
 
-.ranking-row:hover {
-    background: hsla(222, 20%, 15%, 0.4);
-}
+    .standings-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        padding: 20px;
+        backdrop-filter: blur(15px);
+        box-shadow: var(--shadow-premium);
+    }
 
-.ranking-row.current-user {
-    background: rgba(255, 215, 0, 0.03);
-    border-left: 3px solid var(--primary-gold);
-}
+    .standings-table-wrapper {
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
+    }
+
+    .standings-group-section {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+    }
+
+    .standings-group-header {
+        background: rgba(255, 215, 0, 0.08);
+        padding: 16px 18px;
+        border-bottom: 1px solid rgba(255, 215, 0, 0.1);
+    }
+
+    .standings-group-header h3 {
+        font-size: 1rem;
+        font-weight: 700;
+        margin: 0;
+        color: var(--primary-gold);
+    }
+
+    .standings-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .standings-table th,
+    .standings-table td {
+        padding: 12px 14px;
+        text-align: left;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        font-size: 0.9rem;
+        color: var(--text-primary);
+    }
+
+    .standings-table th {
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.4px;
+        color: var(--text-secondary);
+        font-weight: 700;
+    }
+
+    .standings-table tbody tr:nth-child(odd) {
+        background: rgba(255, 255, 255, 0.02);
+    }
+
+    .standings-table tbody tr:hover {
+        background: rgba(255, 255, 255, 0.08);
+    }
+
+    .standings-table td:last-child {
+        font-weight: 700;
+        color: var(--primary-gold);
+    }
+
+    .standings-row.standings-first {
+        background: rgba(255, 215, 0, 0.12);
+        color: var(--text-primary);
+    }
+
+    .standings-row.standings-second {
+        background: rgba(255, 215, 0, 0.06);
+    }
 
 .rank-col {
     font-weight: 800;

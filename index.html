@@ -55,8 +55,9 @@
             </button>
             <button class="tab-btn" data-tab="ranking" id="tab-btn-ranking">
                 📊 Classificação
-            </button>
-            <button class="tab-btn" data-tab="admin" id="tab-btn-admin">
+            </button>            <button class="tab-btn" data-tab="standings" id="tab-btn-standings">
+                📋 Classificação de Grupos
+            </button>            <button class="tab-btn" data-tab="admin" id="tab-btn-admin">
                 ⚙️ Painel Admin
             </button>
         </nav>
@@ -110,6 +111,18 @@
                                 <!-- Preenchido dinamicamente via JS -->
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Aba de Classificação de Grupos -->
+            <section class="tab-content" id="standings-tab" aria-labelledby="tab-btn-standings">
+                <div class="section-header">
+                    <h2>Classificação por Grupo</h2>
+                </div>
+                <div class="standings-card">
+                    <div class="standings-table-wrapper" id="standings-table-wrapper">
+                        <!-- Conteúdo gerado via JS -->
                     </div>
                 </div>
             </section>
